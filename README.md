@@ -1,3 +1,3 @@
 # Plan
 
-[plan](plan.png)
+![plan](plan.png)
