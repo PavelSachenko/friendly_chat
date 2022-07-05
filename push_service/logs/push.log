@@ -1,0 +1,1 @@
+{"file":"main.go:46","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp 127.0.0.1:10000: bind: address already in use","time":"2022-07-05 20:25:46"}
