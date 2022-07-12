@@ -15,8 +15,12 @@ services:
     build: "./push_service"
     ports:
       - "10000"
+    volumes:
+      - ./push_service:/push_service
 
   user_service:
     build: "./user_service"
     ports:
       - "10000"
+    volumes:
+      - ./user_service:/user_service

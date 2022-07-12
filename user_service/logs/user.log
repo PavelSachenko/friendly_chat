@@ -1,0 +1,4 @@
+{"file":"main.go:30","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp: lookup user_service: Temporary failure in name resolution","time":"2022-07-12 20:38:32"}
+{"file":"main.go:35","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp 172.26.0.3:10000: bind: address already in use","time":"2022-07-12 17:55:11"}
+{"file":"main.go:27","func":"main.main()","level":"fatal","msg":"Error init postgres db: CONFIG: {postgres 5432 user_service_postgres_db pass admin friendly_chat_user_service disable user_service_redis_db:6379} ERROR: sql: unknown driver \"postgres\" (forgotten import?)","time":"2022-07-12 19:10:15"}
+{"file":"main.go:40","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp: lookup user_service: Temporary failure in name resolution","time":"2022-07-12 22:15:25"}

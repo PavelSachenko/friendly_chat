@@ -7,8 +7,11 @@ import (
 )
 
 type Config struct {
-	Server server
-	logger *logger.Logger
+	Server               server
+	logger               *logger.Logger
+	DB                   db
+	Auth                 auth
+	UserPasswordHashSalt string `mapstructure:"user_password_hash_salt"`
 }
 
 var (
@@ -35,13 +38,26 @@ func (cfg *Config) unmarshal() error {
 	viper.SetConfigFile(".env")
 	err := viper.ReadInConfig()
 	if err != nil {
-		cfg.logger.Fatal(err.Error())
 		return err
 	}
 
 	err = viper.Unmarshal(&cfg.Server)
 	if err != nil {
-		cfg.logger.Fatal(err.Error())
+		return err
+	}
+
+	err = viper.Unmarshal(&cfg.DB)
+	if err != nil {
+		return err
+	}
+
+	err = viper.Unmarshal(&cfg.Auth)
+	if err != nil {
+		return err
+	}
+
+	err = viper.Unmarshal(&cfg)
+	if err != nil {
 		return err
 	}
 
