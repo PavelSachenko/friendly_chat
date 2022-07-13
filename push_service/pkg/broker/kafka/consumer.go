@@ -7,6 +7,7 @@ import (
 	"github.com/pavel/push_service/pkg/service/socket"
 	"github.com/segmentio/kafka-go"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -44,7 +45,8 @@ func (k kafkaBrokerReader) Read(ctx context.Context, hub *socket.Hub) error {
 			continue
 		}
 		args := strings.Split(string(m.Value), " ")
-		hub.Broadcast <- socket.Broadcast{Broadcast: []byte(args[0]), Username: args[1]}
+		userId, _ := strconv.ParseUint(args[0], 10, 64)
+		hub.Broadcast <- socket.Broadcast{Broadcast: []byte(m.Value), UserIds: []uint64{userId}}
 		fmt.Printf("message at topic/partition/offset %v/%v/%v: %s\n", m.Topic, m.Partition, m.Offset, string(m.Value))
 	}
 }

@@ -3,6 +3,62 @@
 <head>
     <title>Chat Example</title>
     <script type="text/javascript">
+
+        async function query(url = '', queryMethod = "POST", data = {}, headers = {'Content-Type': 'application/json'}) {
+
+            if (queryMethod === "POST"){
+                const response = await fetch(url, {
+                    method: queryMethod, // *GET, POST, PUT, DELETE, etc.
+                    // mode: 'no-cors', // no-cors, *cors, same-origin
+                    cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+                    credentials: 'include', // include, *same-origin, omit
+                    headers: headers,
+                    redirect: 'follow', // manual, *follow, error
+                    referrerPolicy: 'no-referrer', // no-referrer, *client
+                    body: JSON.stringify(data) // body data type must match "Content-Type" header
+                });
+                return await response; // parses JSON response into native JavaScript objects
+
+            }
+            if (queryMethod === "GET"){
+                const response = await fetch(url, {
+                    method: queryMethod, // *GET, POST, PUT, DELETE, etc.
+                    // mode: 'no-cors', // no-cors, *cors, same-origin
+                    cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+                    credentials: 'include', // include, *same-origin, omit
+                    headers: headers,
+                    withCredentials: true,
+                    redirect: 'follow', // manual, *follow, error
+                    referrerPolicy: 'no-referrer', // no-referrer, *client
+                });
+                return await response; // parses JSON response into native JavaScript objects
+            }
+        }
+
+
+        async function login() {
+            const url = 'http://localhost:10000/api/user/auth/sign-in';
+            const data = { password: 'qwerty', username: 'pavel' };
+
+            query(url, "POST", data).then(e => e.json()).then(e => localStorage.setItem('accessToken', e.access_token))
+        }
+
+        async function refreshToken() {
+            const url = 'http://localhost:10000/api/user/auth/refresh';
+            const data = { password: 'qwertyu', username: 'username' };
+
+            query(url, "POST",{},  {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken')}).then(e => console.log(e.json()))
+        }
+
+        function getUser() {
+            const url = 'http://localhost:10000/api/user';
+            query(url, "GET", {}, {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken')}).then(e => console.log(e.json()))
+        }
+        function checkPushCookie() {
+            const url = 'http://localhost:10001/push';
+            query(url, "GET", {}, {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('accessToken')}).then(e => console.log(e.json())).then(e => console.log(e))
+        }
+
         window.onload = function () {
             var conn;
             var msg = document.getElementById("msg");
@@ -29,7 +85,7 @@
             };
 
             if (window["WebSocket"]) {
-                conn = new WebSocket("ws://localhost:10002/ws?username=" + rnd(10, rnd.alphaLower));
+                conn = new WebSocket("ws://localhost:10001/ws?accessToken=" + localStorage.getItem('accessToken'));
                 conn.onclose = function (evt) {
                     var item = document.createElement("div");
                     item.innerHTML = "<b>Connection closed.</b>";
@@ -108,6 +164,10 @@
 <body>
 <div id="log"></div>
 <form id="form">
+    <button onclick="checkPushCookie()">push</button>
+    <button onclick="refreshToken()">refresh</button>
+    <button onclick="login()">login</button>
+    <button onclick="getUser()">GetUser</button>
     <input type="submit" value="Send" />
     <input type="text" id="msg" size="64" autofocus />
 </form>

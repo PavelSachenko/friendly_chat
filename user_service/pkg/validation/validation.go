@@ -46,6 +46,10 @@ func (v *Validator) ValidateRequest(ctx *gin.Context, obj any) []*IError {
 		tagName = "json"
 		err := ctx.ShouldBindJSON(&obj)
 		if err != nil {
+			err := v.Struct(obj, tagName)
+			if err != nil {
+				return v.buildJsonErrors(err)
+			}
 			return []*IError{{Tag: "unknown error", Value: err.Error()}}
 		}
 	} else {

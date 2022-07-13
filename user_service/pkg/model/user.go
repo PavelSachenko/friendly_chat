@@ -6,8 +6,7 @@ var UserTable = "users"
 
 type User struct {
 	ID           uint64     `json:"id" sql:"id"`
-	Email        string     `json:"email" db:"email"`
-	Name         string     `json:"name" db:"name"`
+	Username     string     `json:"username" db:"username"`
 	PasswordHash string     `json:"password_hash" db:"password_hash"`
 	Description  string     `json:"description" db:"description"`
 	Avatar       string     `json:"avatar" db:"avatar"`

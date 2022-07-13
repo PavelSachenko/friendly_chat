@@ -9,7 +9,6 @@ import (
 	"github.com/pavel/user_service/pkg/model"
 	"github.com/pavel/user_service/pkg/repository"
 	"github.com/twinj/uuid"
-
 	"strconv"
 	"time"
 )
@@ -20,6 +19,7 @@ type Auth interface {
 	Logout(accessToken string) error
 	RefreshToken(refreshToken string) (error, *model.TokenDetails)
 	CheckAuthorization(accessToken string) (error, uint64)
+	GetUserIdByRefreshToken(refreshToken string) (error, uint64)
 }
 
 type AuthService struct {
@@ -35,7 +35,7 @@ func InitAuthService(db repository.Auth, cfg *config.Config) AuthService {
 }
 
 func (as AuthService) SigIn(user *model.User) (error, *model.TokenDetails) {
-	err, userId := as.repo.IsUserExist(as.hashPassword(user.PasswordHash), user.Email)
+	err, userId := as.repo.IsUserExist(as.hashPassword(user.PasswordHash), user.Username)
 	user.ID = userId
 	if err != nil {
 		return err, nil
@@ -73,7 +73,27 @@ func (as AuthService) Logout(accessToken string) error {
 }
 
 func (as AuthService) RefreshToken(refreshToken string) (error, *model.TokenDetails) {
-	//verify the token
+	err, refreshUUID, userId := as.getRefreshUUIDAndUserId(refreshToken)
+	if err != nil {
+		return err, nil
+	}
+	delErr := as.repo.DeleteToken(refreshUUID)
+	if delErr != nil { //if any goes wrong
+		return errors.New("unauthorized"), nil
+	}
+
+	return as.createToken(userId)
+}
+
+func (as AuthService) GetUserIdByRefreshToken(refreshToken string) (error, uint64) {
+	err, _, userId := as.getRefreshUUIDAndUserId(refreshToken)
+	if err != nil {
+		return err, 0
+	}
+	return nil, userId
+}
+
+func (as AuthService) getRefreshUUIDAndUserId(refreshToken string) (error, string, uint64) {
 	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
 		//Make sure that the token method conform to "SigningMethodHMAC"
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -83,32 +103,27 @@ func (as AuthService) RefreshToken(refreshToken string) (error, *model.TokenDeta
 	})
 	//if there is an error, the token must have expired
 	if err != nil {
-		return errors.New("Refresh token expired"), nil
+		return errors.New("Refresh token expired"), "", 0
 	}
 	//is token valid?
 	if _, ok := token.Claims.(jwt.Claims); !ok && !token.Valid {
-		return err, nil
+		return err, "", 0
 	}
 	//Since token is valid, get the uuid:
 	claims, ok := token.Claims.(jwt.MapClaims) //the token claims should conform to MapClaims
 	if ok && token.Valid {
 		refreshUuid, ok := claims["refresh_uuid"].(string) //convert the interface to string
 		if !ok {
-			return err, nil
+			return err, "", 0
 		}
 		userId, err := strconv.ParseUint(fmt.Sprintf("%.f", claims["user_id"]), 10, 64)
 		if err != nil {
-			return err, nil
-		}
-		//Delete the previous Refresh Token
-		delErr := as.repo.DeleteToken(refreshUuid)
-		if delErr != nil { //if any goes wrong
-			return errors.New("unauthorized"), nil
+			return err, "", 0
 		}
 
-		return as.createToken(userId)
+		return nil, refreshUuid, userId
 	} else {
-		return errors.New("refresh expired"), nil
+		return errors.New("refresh expired"), "", 0
 	}
 }
 
@@ -177,7 +192,7 @@ func (as *AuthService) extractTokenMetadata(accessToken string) (*AccessDetails,
 	if ok && token.Valid {
 		accessUuid, ok := claims["access_uuid"].(string)
 		if !ok {
-			return nil, err
+			return nil, errors.New("Bad jwt token")
 		}
 		userId, err := strconv.ParseUint(fmt.Sprintf("%.f", claims["user_id"]), 10, 64)
 		if err != nil {

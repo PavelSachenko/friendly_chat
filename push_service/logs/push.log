@@ -4,3 +4,8 @@
 {"file":"main.go:52","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp :10000: bind: address already in use","time":"2022-07-06 22:12:09"}
 {"file":"main.go:52","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp :10000: bind: address already in use","time":"2022-07-06 22:12:30"}
 {"file":"main.go:52","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp :10000: bind: address already in use","time":"2022-07-06 22:12:39"}
+{"file":"main.go:61","func":"main.main()","level":"fatal","msg":"Error init net listener: ERROR: listen tcp :10000: bind: address already in use","time":"2022-07-13 17:46:12"}
+{"file":"main.go:45","func":"main.main.func1()","level":"fatal","msg":"ERROR connect to socket: http: named cookie not present","time":"2022-07-13 17:51:55"}
+{"file":"main.go:58","func":"main.main.func2()","level":"fatal","msg":"ERROR connect to socket: http: named cookie not present","time":"2022-07-13 18:20:11"}
+{"file":"main.go:58","func":"main.main.func2()","level":"fatal","msg":"ERROR connect to socket: http: named cookie not present","time":"2022-07-13 18:21:03"}
+{"file":"main.go:58","func":"main.main.func2()","level":"fatal","msg":"ERROR connect to socket: http: named cookie not present","time":"2022-07-13 19:00:59"}

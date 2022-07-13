@@ -23,4 +23,38 @@ services:
     ports:
       - "10000"
     volumes:
-      - ./user_service:/user_service
+      - ./user_service/cmd:/cmd
+    depends_on:
+      - user_service_postgres_db
+      - user_service_redis_db
+    command: ["./wait-for-it/wait-for-it.sh", "user_service_postgres_db:5432", "user_service_redis_db:6379", "-t", "600000000", "--", "/build"]
+    restart: on-failure
+
+
+  user_service_postgres_db:
+    image: postgres:latest
+    container_name: user_service_postgres_db
+    restart: always
+    environment:
+      POSTGRES_DB: "friendly_chat_user_service"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "pass"
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./user_service/postgres-data:/var/lib/postgresql/data
+
+
+  user_service_redis_db:
+    container_name: user_service_redis_db
+    image: "redis"
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - cache:/data
+
+volumes:
+  cache:
+    driver: local
+

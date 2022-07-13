@@ -1,6 +1,9 @@
 package socket
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/pavel/push_service/pkg/utils"
+)
 
 //type Hub interface {
 //	Run()
@@ -24,6 +27,7 @@ type Hub struct {
 type Broadcast struct {
 	Broadcast []byte
 	Username  string
+	UserIds   []uint64
 }
 
 func NewHub(broadcast chan Broadcast) *Hub {
@@ -49,7 +53,7 @@ func (h *Hub) Run() {
 			fmt.Println("Message.TEXT from socket: " + string(message.Broadcast))
 			fmt.Println("Message.USERNAME from socket: " + string(message.Username))
 
-			if message.Username == "" {
+			if message.UserIds == nil {
 				for client := range h.clients {
 					select {
 					case client.send <- message:
@@ -60,9 +64,7 @@ func (h *Hub) Run() {
 				}
 			} else {
 				for client := range h.clients {
-					fmt.Println("h.broadcast.username: " + message.Username)
-					fmt.Println("client name: " + client.username)
-					if client.username != "" && message.Username == client.username {
+					if utils.ContainsUint(message.UserIds, client.userID) {
 						select {
 						case client.send <- message:
 						default:
@@ -72,6 +74,30 @@ func (h *Hub) Run() {
 					}
 				}
 			}
+
+			//if message.Username == "" {
+			//	for client := range h.clients {
+			//		select {
+			//		case client.send <- message:
+			//		default:
+			//			close(client.send)
+			//			delete(h.clients, client)
+			//		}
+			//	}
+			//} else {
+			//	for client := range h.clients {
+			//		fmt.Println("h.broadcast.username: " + message.Username)
+			//		fmt.Println("client name: " + client.username)
+			//		if client.username != "" && message.Username == client.username {
+			//			select {
+			//			case client.send <- message:
+			//			default:
+			//				close(client.send)
+			//				delete(h.clients, client)
+			//			}
+			//		}
+			//	}
+			//}
 		}
 	}
 }

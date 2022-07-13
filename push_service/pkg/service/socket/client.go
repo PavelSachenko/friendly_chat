@@ -121,15 +121,16 @@ func (c *Client) writePump() {
 }
 
 // ServeWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, username string) {
+func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, userID uint64) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan Broadcast), username: username}
+	//client := &Client{hub: hub, conn: conn, send: make(chan Broadcast), userID: uint64(len(username))}
+	client := &Client{hub: hub, conn: conn, send: make(chan Broadcast), userID: userID}
 	client.hub.register <- client
-	fmt.Printf("Client username: %s was connected\r\n", username)
+	fmt.Printf("Client userID: %d was connected\r\n", userID)
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writePump()

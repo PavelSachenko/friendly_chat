@@ -17,7 +17,7 @@ type Auth interface {
 	SaveToken(userId uint64, token *model.TokenDetails) error
 	DeleteToken(uuid string) error
 	GetUserIdFromToken(uuid string) (error, uint64)
-	IsUserExist(password, email string) (error, uint64)
+	IsUserExist(password, username string) (error, uint64)
 	CreateUser(user *model.User, roleId uint32) (error, uint64)
 }
 
@@ -77,9 +77,9 @@ func (a AuthRepo) GetUserIdFromToken(uuid string) (error, uint64) {
 	return nil, userID
 }
 
-func (a AuthRepo) IsUserExist(password, email string) (error, uint64) {
+func (a AuthRepo) IsUserExist(password, username string) (error, uint64) {
 	var id uint64
-	err := a.postgres.Get(&id, "SELECT id FROM users WHERE users.password_hash=$1 AND users.email=$2 LIMIT 1", password, email)
+	err := a.postgres.Get(&id, "SELECT id FROM users WHERE users.password_hash=$1 AND users.username=$2 LIMIT 1", password, username)
 	if err != nil || id == 0 {
 		return errors.New("unauthorized"), 0
 	}
@@ -87,7 +87,7 @@ func (a AuthRepo) IsUserExist(password, email string) (error, uint64) {
 }
 
 func (a AuthRepo) CreateUser(user *model.User, roleId uint32) (error, uint64) {
-	err := a.isUserEmailAlreadyExist(user.Email)
+	err := a.isUserNameAlreadyExist(user.Username)
 	if err != nil {
 		a.logger.Error(err)
 		return err, 0
@@ -100,8 +100,8 @@ func (a AuthRepo) CreateUser(user *model.User, roleId uint32) (error, uint64) {
 
 	ctx := context.Background()
 	tx, err := a.postgres.BeginTx(ctx, nil)
-	insertUserSql := fmt.Sprintf("INSERT INTO %s(email, password_hash) VALUES ($1, $2) RETURNING id", model.UserTable)
-	rows, err := tx.QueryContext(ctx, insertUserSql, user.Email, user.PasswordHash)
+	insertUserSql := fmt.Sprintf("INSERT INTO %s(username, password_hash) VALUES ($1, $2) RETURNING id", model.UserTable)
+	rows, err := tx.QueryContext(ctx, insertUserSql, user.Username, user.PasswordHash)
 	if err != nil {
 		tx.Rollback()
 		return err, 0
@@ -124,7 +124,8 @@ func (a AuthRepo) CreateUser(user *model.User, roleId uint32) (error, uint64) {
 	}
 
 	if err != nil || user.ID == 0 {
-		return errors.New("not inserted"), 0
+		tx.Rollback()
+		return errors.New("user not created"), 0
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -134,14 +135,14 @@ func (a AuthRepo) CreateUser(user *model.User, roleId uint32) (error, uint64) {
 	return nil, user.ID
 }
 
-func (a *AuthRepo) isUserEmailAlreadyExist(email string) error {
+func (a *AuthRepo) isUserNameAlreadyExist(username string) error {
 	var id uint64
-	err := a.postgres.Get(&id, "SELECT id FROM "+model.UserTable+" WHERE "+model.UserTable+".email=$1 LIMIT 1", email)
+	err := a.postgres.Get(&id, "SELECT id FROM "+model.UserTable+" WHERE "+model.UserTable+".username=$1 LIMIT 1", username)
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
 	if id != 0 {
-		return errors.New("user with this email address already exists")
+		return errors.New("user with this username address already exists")
 	}
 	return nil
 }

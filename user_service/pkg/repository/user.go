@@ -25,7 +25,7 @@ func InitUserPostgres(db *db.DB, logger *logger.Logger) *UserPostgres {
 
 func (u UserPostgres) One(id uint64) (error, *model.User) {
 	var user model.User
-	rows, err := u.db.Queryx("SELECT id,email,name,description,avatar,created_at,updated_at FROM "+model.UserTable+" WHERE "+model.UserTable+".id=$1 LIMIT 1", id)
+	rows, err := u.db.Queryx("SELECT id,username,description,avatar,created_at,updated_at FROM "+model.UserTable+" WHERE "+model.UserTable+".id=$1 LIMIT 1", id)
 	if err != nil && err != sql.ErrNoRows {
 		u.logger.Error(err)
 		return err, nil
@@ -33,8 +33,7 @@ func (u UserPostgres) One(id uint64) (error, *model.User) {
 	if rows.Next() {
 		err := rows.Scan(
 			&user.ID,
-			&user.Email,
-			&user.Name,
+			&user.Username,
 			&user.Description,
 			&user.Avatar,
 			&user.CreatedAt,
