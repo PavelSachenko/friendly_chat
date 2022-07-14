@@ -2,6 +2,7 @@ package socket
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -37,13 +38,14 @@ var upgrader = websocket.Upgrader{
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	hub *Hub
-
+	hub      *Hub
+	userID   uint64
+	username string
 	// The websocket connection.
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send chan Broadcast
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -68,7 +70,7 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <- message
+		c.hub.Broadcast <- Broadcast{Broadcast: message, Username: ""}
 	}
 }
 
@@ -97,13 +99,13 @@ func (c *Client) writePump() {
 			if err != nil {
 				return
 			}
-			w.Write(message)
+			w.Write(message.Broadcast)
 
 			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
 				w.Write(newline)
-				w.Write(<-c.send)
+				w.Write(message.Broadcast)
 			}
 
 			if err := w.Close(); err != nil {
@@ -119,15 +121,16 @@ func (c *Client) writePump() {
 }
 
 // ServeWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, userID uint64) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	//client := &Client{hub: hub, conn: conn, send: make(chan Broadcast), userID: uint64(len(username))}
+	client := &Client{hub: hub, conn: conn, send: make(chan Broadcast), userID: userID}
 	client.hub.register <- client
-
+	fmt.Printf("Client userID: %d was connected\r\n", userID)
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writePump()
