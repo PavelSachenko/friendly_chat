@@ -27,14 +27,14 @@ func InitHandler(log logger.Logger, user service.User, auth service.Auth, gin *g
 }
 
 func (h *Handler) Handle() *gin.Engine {
-	h.log.Printf("Add prefix api to all handlers")
+	h.log.Printf("Add prefix api to all handler")
 	api := h.gin.Group("/api")
 	//api.Use(h.cors)
 
-	h.log.Printf("Init user handlers")
+	h.log.Printf("Init user handler")
 	h.userHandlers(api)
 
-	h.log.Printf("Init auth handlers")
+	h.log.Printf("Init auth handler")
 	h.authHandlers(api)
 
 	return h.gin

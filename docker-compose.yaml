@@ -18,6 +18,20 @@ services:
     volumes:
       - ./push_service:/push_service
 
+  message_service_postgres_db:
+    image: postgres:latest
+    container_name: message_service_postgres_db
+    restart: always
+    environment:
+      POSTGRES_DB: "friendly_chat_message_service"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "pass"
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./message_service/postgres-data:/var/lib/postgresql/data
+
+
   user_service:
     build: "./user_service"
     ports:
