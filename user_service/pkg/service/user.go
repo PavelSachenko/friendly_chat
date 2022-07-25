@@ -6,7 +6,8 @@ import (
 )
 
 type User interface {
-	GetUser(userId uint64) (error, *model.User)
+	GetUser(userId uint64) (error, *model.SelectUser)
+	FindUser(filer model.UserFilter) (error, []*model.SelectUser)
 }
 
 type UserService struct {
@@ -19,6 +20,13 @@ func InitUserService(repo repository.User) UserService {
 	}
 }
 
-func (u UserService) GetUser(userId uint64) (error, *model.User) {
+func (u UserService) GetUser(userId uint64) (error, *model.SelectUser) {
 	return u.repo.One(userId)
+}
+
+func (u UserService) FindUser(filer model.UserFilter) (error, []*model.SelectUser) {
+	if filer.Limit == 0 {
+		filer.Limit = 20
+	}
+	return u.repo.All(filer)
 }

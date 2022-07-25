@@ -44,6 +44,7 @@ func (h *Handler) userHandlers(api *gin.RouterGroup) {
 	user := api.Group("/user")
 	user.Use(h.authMiddleware)
 	user.GET("", h.getUser)
+	user.GET("/all", h.getFindUsers)
 }
 
 func (h *Handler) authHandlers(api *gin.RouterGroup) {

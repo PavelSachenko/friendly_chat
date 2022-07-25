@@ -43,3 +43,21 @@ alter table users_roles
         foreign key (role_id)
             REFERENCES roles (id)
             ON DELETE SET NULL;
+
+INSERT INTO users (id, username, password_hash)
+VALUES
+    (1, 'pavel', '4aa3366be51a719c1b2db3c207dabb2c1015f528'),
+    (2, 'vlad', '4aa3366be51a719c1b2db3c207dabb2c1015f528'),
+    (3, 'anton', '4aa3366be51a719c1b2db3c207dabb2c1015f528'),
+    (4, 'test', '4aa3366be51a719c1b2db3c207dabb2c1015f528'),
+    (5, 'masha', '4aa3366be51a719c1b2db3c207dabb2c1015f528'),
+    (6, 'tihon', '4aa3366be51a719c1b2db3c207dabb2c1015f528');
+
+INSERT INTO users_roles (user_id, role_id)
+VALUES
+(1, 2),
+(2, 2),
+(3, 2),
+(4, 2),
+(5, 2),
+(6, 2);

@@ -13,8 +13,8 @@ import (
 )
 
 type Chat interface {
-	CreatePrivate(description string, userTitleChats []model.UserTitleChats) error
-	CreateGroup(description, title string, UsersOwners []model.UsersOwners) error
+	CreatePrivate(userTitleChats []model.UserTitleChats) (int, error)
+	CreateGroup(description, title string, UsersOwners []model.UsersOwners) (int, error)
 	All(filterChat model.FilterChat) ([]*model.AllChat, error)
 }
 
@@ -31,31 +31,32 @@ func InitChatPostgreSQL(db db.DB, log logger.Logger) *ChatPostgreSQL {
 }
 
 func (c ChatPostgreSQL) All(filterChat model.FilterChat) ([]*model.AllChat, error) {
+	getStartPositition := fmt.Sprintf("(select count(cmc.id)-(select count(id) from %s cuum WHERE cuum.chat_id = c.id AND cuum.user_id = $1) FROM %s cmc WHERE cmc.chat_id = c.id) as start_position", model.USER_UNREAD_MESSAGE, model.MESSAGE_CHAT_TABLE)
 	countUnreadMessageSubSql := fmt.Sprintf("(SELECT count(uum.id) as count FROM %s uum WHERE c.id = uum.chat_id AND uum.user_id = $1) as count_unread_message", model.USER_UNREAD_MESSAGE)
 	lastMessageSubSql := fmt.Sprintf("(select json_build_object('body', mc.body, 'created_at', mc.created_at, 'is_sent', "+
 		"(select exists(select id from %s WHERE mc.id = messages_chats.id AND messages_chats.sender_user_id = $1)))"+
 		" FROM %s as mc WHERE mc.chat_id = c.id GROUP BY mc.id, mc.body, mc.created_at ORDER BY mc.created_at DESC LIMIT 1)", model.MESSAGE_CHAT_TABLE, model.MESSAGE_CHAT_TABLE)
-	chatSql := fmt.Sprintf("SELECT c.id, lc.title, c.description, c.type, c.created_at, c.updated_at, %s, %s as last_message FROM %s as c LEFT JOIN users_chats uc on c.id = uc.chat_id"+
-		" LEFT JOIN labels_chats lc on c.id = lc.chat_id WHERE uc.user_id = $1 AND lc.user_id = $1 ORDER BY ", countUnreadMessageSubSql, lastMessageSubSql, model.CHATS_TABLE)
+	chatSql := fmt.Sprintf("SELECT c.id, lc.title, c.description, c.type, c.created_at, c.updated_at, %s, %s, %s as last_message FROM %s as c LEFT JOIN users_chats uc on c.id = uc.chat_id"+
+		" LEFT JOIN labels_chats lc on c.id = lc.chat_id WHERE uc.user_id = $1 AND lc.user_id = $1 ORDER BY ", getStartPositition, countUnreadMessageSubSql, lastMessageSubSql, model.CHATS_TABLE)
 	chatSql = fmt.Sprintf("%s %s->>'created_at' DESC LIMIT %d OFFSET %d", chatSql, lastMessageSubSql, filterChat.Limit, filterChat.Offset)
 	rows, err := c.db.Query(chatSql, filterChat.UserId)
 	if err != nil {
-		log.Fatalf("Get all chats. Err: %v", err)
+		c.log.Warnf("Get all chats. Err: %v", err)
 		return nil, err
 	}
 	var allChats []*model.AllChat
 	for rows.Next() {
 		var allChat model.AllChat
 		var lastMessageJSON *string
-		err := rows.Scan(&allChat.ID, &allChat.Title, &allChat.Description, &allChat.Type, &allChat.CreatedAt, &allChat.UpdateAt, &allChat.CountUnreadMessage, &lastMessageJSON)
+		err := rows.Scan(&allChat.ID, &allChat.Title, &allChat.Description, &allChat.Type, &allChat.CreatedAt, &allChat.UpdateAt, &allChat.StartPosition, &allChat.CountUnreadMessage, &lastMessageJSON)
 		if err != nil {
-			log.Fatalf("Get all chats scan error. Err: %v", err)
+			c.log.Warnf("Get all chats scan error. Err: %v", err)
 			return nil, err
 		}
 		if lastMessageJSON != nil {
 			err = json.Unmarshal([]byte(*lastMessageJSON), &allChat.LastMessage)
 			if err != nil {
-				log.Fatalf("Can't unmarshal last_message. Err: %v", err)
+				c.log.Warnf("Can't unmarshal last_message. Err: %v", err)
 				return nil, err
 			}
 		}
@@ -65,17 +66,17 @@ func (c ChatPostgreSQL) All(filterChat model.FilterChat) ([]*model.AllChat, erro
 	return allChats, nil
 }
 
-func (c ChatPostgreSQL) CreateGroup(description, title string, usersOwners []model.UsersOwners) error {
+func (c ChatPostgreSQL) CreateGroup(description, title string, usersOwners []model.UsersOwners) (int, error) {
 	ctx := context.Background()
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
-		c.log.Fatalf("Transaction error: %v", err)
-		return err
+		c.log.Warnf("Transaction error: %v", err)
+		return 0, err
 	}
 	chatId, err := c.createChat(ctx, tx, description, model.GROUP_CHAT)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 	userQueryBuilder := c.db.QueryBuilder.NewQueryBuilder()
 	labelChatSqlBuilder := c.db.QueryBuilder.Insert(fmt.Sprintf("%s (chat_id, user_id, title)", model.LABELS_CHATS_TABLE)).Values("")
@@ -91,29 +92,53 @@ func (c ChatPostgreSQL) CreateGroup(description, title string, usersOwners []mod
 
 	err = c.insertRelationToChat(labelChatSqlBuilder, tx, model.LABELS_CHATS_TABLE)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	err = c.insertRelationToChat(userQueryBuilder, tx, model.USERS_CHATS_TABLE)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	tx.Commit()
 	log.Printf("Created chat, insert users to chat and labels for user. Chat id: %d", chatId)
-	return nil
+	return chatId, nil
 }
 
-func (c ChatPostgreSQL) CreatePrivate(description string, userTitleChats []model.UserTitleChats) error {
+func (c ChatPostgreSQL) CreatePrivate(userTitleChats []model.UserTitleChats) (int, error) {
 	ctx := context.Background()
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
-		c.log.Fatalf("Transaction error: %v", err)
-		return err
+		c.log.Warnf("Transaction error: %v", err)
+		return 0, err
 	}
-	chatId, err := c.createChat(ctx, tx, description, model.PRIVATE_CHAT)
+
+	chatIdIfExist, err := tx.QueryContext(
+		ctx,
+		fmt.Sprintf("SELECT chat_id FROM %s uc LEFT JOIN %s c on c.id = uc.chat_id WHERE user_id in ($1, $2) AND c.type = %d GROUP BY chat_id HAVING (count(chat_id)) >= 2 LIMIT 1",
+			model.USERS_CHATS_TABLE,
+			model.CHATS_TABLE,
+			model.PRIVATE_CHAT,
+		),
+		userTitleChats[0].UserId, userTitleChats[1].UserId,
+	)
+	var chatId int
+	if chatIdIfExist.Next() {
+		err = chatIdIfExist.Scan(&chatId)
+		if err != nil {
+			c.log.Warnf("Can't scan chatId. err: %v", err)
+			tx.Rollback()
+			return 0, err
+		}
+	}
+	if chatId != 0 {
+		tx.Commit()
+		return chatId, nil
+	}
+
+	chatId, err = c.createChat(ctx, tx, "", model.PRIVATE_CHAT)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 	userQueryBuilder := c.db.QueryBuilder.NewQueryBuilder()
 	labelChatSqlBuilder := c.db.QueryBuilder.Insert(fmt.Sprintf("%s (chat_id, user_id, title)", model.LABELS_CHATS_TABLE)).Values("")
@@ -129,16 +154,16 @@ func (c ChatPostgreSQL) CreatePrivate(description string, userTitleChats []model
 
 	err = c.insertRelationToChat(labelChatSqlBuilder, tx, model.LABELS_CHATS_TABLE)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	err = c.insertRelationToChat(userQueryBuilder, tx, model.USERS_CHATS_TABLE)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	tx.Commit()
 	c.log.Printf("Created chat, insert users to chat and labels for user. Chat id: %d", chatId)
-	return nil
+	return chatId, nil
 }
 
 func (c *ChatPostgreSQL) insertRelationToChat(builder db.QueryBuilder, tx *sql.Tx, tableName string) error {
@@ -146,7 +171,7 @@ func (c *ChatPostgreSQL) insertRelationToChat(builder db.QueryBuilder, tx *sql.T
 	_, err := tx.Exec(userChatSql, userChatArgs...)
 	if err != nil {
 		tx.Rollback()
-		c.log.Fatalf("%s insert error: %v", tableName, err)
+		c.log.Warnf("%s insert error: %v", tableName, err)
 		return err
 	}
 
@@ -157,7 +182,7 @@ func (c *ChatPostgreSQL) createChat(ctx context.Context, tx *sql.Tx, description
 	dateNow := time.Now()
 	chatRes, err := tx.QueryContext(ctx, fmt.Sprintf("INSERT INTO %s (description, type, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id", model.CHATS_TABLE), description, chatType, dateNow, dateNow)
 	if err != nil {
-		c.log.Fatalf("Transaction error: %v", err)
+		c.log.Warnf("Transaction error: %v", err)
 		tx.Rollback()
 		return 0, err
 	}
@@ -165,7 +190,7 @@ func (c *ChatPostgreSQL) createChat(ctx context.Context, tx *sql.Tx, description
 		err = chatRes.Scan(&chatId)
 		if err != nil {
 			tx.Rollback()
-			c.log.Fatalf("Scan chats error: %v", err)
+			c.log.Warnf("Scan chats error: %v", err)
 			return 0, err
 		}
 	}

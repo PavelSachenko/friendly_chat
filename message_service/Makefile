@@ -9,3 +9,8 @@ migrate:
 	docker run --rm -v $(abs_path)/migration:/migrations --network host migrate/migrate \
 			-path=/migrations/ \
 			-database "postgresql://${DB_USERNAME}:${DB_PASSWORD}@0.0.0.0:5435/${DB_DATABASE}?sslmode=disable" up
+
+
+proto:
+	protoc -I=. --go_out=paths=source_relative:. --grpc-gateway_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. gateway/point/user/pb/*.proto \
+	&& sed -i "s/,omitempty//" gateway/point/user/pb/*.pb.go

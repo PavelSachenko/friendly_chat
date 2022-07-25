@@ -2,13 +2,15 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/pavel/user_service/pkg/db"
 	"github.com/pavel/user_service/pkg/logger"
 	"github.com/pavel/user_service/pkg/model"
 )
 
 type User interface {
-	One(id uint64) (error, *model.User)
+	One(id uint64) (error, *model.SelectUser)
+	All(filter model.UserFilter) (err error, users []*model.SelectUser)
 }
 
 type UserPostgres struct {
@@ -23,9 +25,36 @@ func InitUserPostgres(db *db.DB, logger *logger.Logger) *UserPostgres {
 	}
 }
 
-func (u UserPostgres) One(id uint64) (error, *model.User) {
-	var user model.User
-	rows, err := u.db.Queryx("SELECT id,username,description,avatar,created_at,updated_at FROM "+model.UserTable+" WHERE "+model.UserTable+".id=$1 LIMIT 1", id)
+func (u UserPostgres) All(filter model.UserFilter) (err error, users []*model.SelectUser) {
+	rawSql := fmt.Sprintf("SELECT id, username, description, avatar, created_at FROM %s WHERE username like $1 AND id <> $2 LIMIT %d OFFSET %d", model.UserTable, filter.Limit, filter.Offset)
+	rows, err := u.db.Queryx(rawSql, filter.Username+"%", filter.OwnerUserId)
+	if err != nil {
+		u.logger.Warnf("Bad sql request: err %v", err)
+		return err, nil
+	}
+	for rows.Next() {
+		var user model.SelectUser
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.Description,
+			&user.Avatar,
+			&user.CreatedAt,
+		)
+		if err != nil {
+			u.logger.Warnf("Can't scan struct: err %v", err)
+			return err, nil
+		}
+		users = append(users, &user)
+	}
+	rows.Close()
+
+	return nil, users
+}
+
+func (u UserPostgres) One(id uint64) (error, *model.SelectUser) {
+	var user model.SelectUser
+	rows, err := u.db.Queryx("SELECT id,username,description,avatar,created_at FROM "+model.UserTable+" WHERE "+model.UserTable+".id=$1 LIMIT 1", id)
 	if err != nil && err != sql.ErrNoRows {
 		u.logger.Error(err)
 		return err, nil
@@ -37,41 +66,12 @@ func (u UserPostgres) One(id uint64) (error, *model.User) {
 			&user.Description,
 			&user.Avatar,
 			&user.CreatedAt,
-			&user.UpdatedAt,
 		)
 		if err != nil {
 			u.logger.Error(err)
 			return err, nil
 		}
 	}
-	err, role := u.getUserRole(user.ID)
-	if err != nil && err != sql.ErrNoRows {
-		u.logger.Error(err)
-		return err, nil
-	}
-	user.Role = model.Role{ID: role.ID, Title: role.Title, Description: role.Description}
+	rows.Close()
 	return nil, &user
-}
-
-func (u UserPostgres) getUserRole(userId uint64) (error, *model.Role) {
-	var role model.Role
-	rows, err := u.db.Queryx("SELECT roles.id, roles.title, roles.description FROM "+model.RoleTable+
-		" inner join "+model.UserRoleTable+" ur on roles.id = ur.role_id"+
-		" where ur.user_id = $1 limit 1", userId)
-	if err != nil && err != sql.ErrNoRows {
-		u.logger.Error(err)
-		return err, nil
-	}
-	if rows.Next() {
-		err := rows.Scan(
-			&role.ID,
-			&role.Title,
-			&role.Description,
-		)
-		if err != nil {
-			u.logger.Error(err)
-			return err, nil
-		}
-	}
-	return nil, &role
 }
