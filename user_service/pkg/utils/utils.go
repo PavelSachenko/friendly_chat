@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pavel/user_service/pkg/validation"
+	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 )
 
 func GetBearerToken(ctx *gin.Context) string {
@@ -30,4 +33,11 @@ func GetUserIdFromContext(ctx *gin.Context) (*validation.IError, uint64) {
 		return &validation.IError{Field: "Bearer Token", Value: "wrong", Tag: "token"}, 0
 	}
 	return nil, userId.(uint64)
+}
+
+func GetRandomString(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, length)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)[:length]
 }

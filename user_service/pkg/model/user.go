@@ -20,7 +20,12 @@ type SelectUser struct {
 	Username    string     `json:"username" db:"username"`
 	Description string     `json:"description" db:"description"`
 	Avatar      string     `json:"avatar" db:"avatar"`
-	CreatedAt   *time.Time `json:"created_at" db:"crated_at"`
+	CreatedAt   *time.Time `json:"created_at" db:"created_at"`
+}
+
+type UpdateUser struct {
+	ID          uint64 `json:"id" sql:"id"`
+	Description string `json:"description" db:"description"`
 }
 
 type UserFilter struct {

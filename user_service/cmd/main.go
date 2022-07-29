@@ -1,6 +1,9 @@
 package main
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
@@ -37,13 +40,30 @@ func main() {
 	userRepo := repository.InitUserPostgres(postgres, log)
 	authRepo := repository.InitAuthRedis(redis, postgres, log)
 
-	userService := service.InitUserService(userRepo)
+	userService := service.InitUserService(userRepo, cfg, log)
 	authService := service.InitAuthService(authRepo, cfg)
 	handlerOrigin := gin.New()
 	handlerOrigin.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8080", "http://localhost:1000", "http://localhost:10000", "http://localhost:10001", "http://localhost:3000", "http://localhost:3001"},
-		AllowMethods:     []string{"*"},
-		AllowHeaders:     []string{"Authorization", "Access-Control-Allow-Headers", "Origin", "Accept", "X-Requested-With", "Content-Type", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Sec-WebSocket-Protocol", "*"},
+		AllowOrigins: []string{
+			"http://localhost:8080",
+			"http://localhost:1000",
+			"http://localhost:10000",
+			"http://localhost:10001",
+			"http://localhost:3000",
+			"http://localhost:3001",
+		},
+		AllowMethods: []string{"POST", "GET", "OPTIONS", "PUT", "DELETE", "PATCH", "HEAD"},
+		AllowHeaders: []string{
+			"Authorization",
+			"Access-Control-Allow-Headers",
+			"Origin",
+			"Accept",
+			"X-Requested-With",
+			"Content-Type",
+			"Access-Control-Request-Method",
+			"Access-Control-Request-Headers",
+			"Sec-WebSocket-Protocol",
+			"*"},
 		AllowCredentials: true,
 		AllowWildcard:    false,
 		AllowWebSockets:  true,
@@ -51,7 +71,12 @@ func main() {
 	}))
 
 	handlerOrigin.Use(func(ctx *gin.Context) {
+		ctx.Set("aws_session", connectToAws(cfg))
+		ctx.Next()
+	})
+	handlerOrigin.Use(func(ctx *gin.Context) {
 		ctx.Writer.Header().Add("Content-Type", "application/json")
+		ctx.Next()
 	})
 	grpcServer := grpc.NewServer()
 	pb.RegisterUserServiceServer(grpcServer, pb.InitGRPCServer(log, userService, authService))
@@ -61,7 +86,7 @@ func main() {
 	}
 	wg.Add(1)
 	go serveGRPC(lis, grpcServer)
-	api.InitHandler(*log, userService, authService, handlerOrigin).Handle()
+	api.InitHandler(cfg, *log, userService, authService, handlerOrigin).Handle()
 	err = http.ListenAndServe(cfg.Server.Host+cfg.Server.Port, handlerOrigin)
 	if err != nil {
 		log.Fatalf("Error init net listener: ERROR: %s", err.Error())
@@ -72,4 +97,23 @@ func main() {
 func serveGRPC(lis net.Listener, grpcServer *grpc.Server) {
 	defer wg.Done()
 	grpcServer.Serve(lis)
+}
+
+func connectToAws(cfg *config.Config) *session.Session {
+	accessKeyID := cfg.Aws.AccessKey
+	secretAccessKey := cfg.Aws.SecretKey
+	myRegion := cfg.Aws.Region
+	sess, err := session.NewSession(
+		&aws.Config{
+			Region: aws.String(myRegion),
+			Credentials: credentials.NewStaticCredentials(
+				accessKeyID,
+				secretAccessKey,
+				"",
+			),
+		})
+	if err != nil {
+		panic(err)
+	}
+	return sess
 }
