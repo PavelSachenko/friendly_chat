@@ -11,6 +11,7 @@ type Config struct {
 	logger               *logger.Logger
 	DB                   db
 	Auth                 auth
+	Aws                  aws
 	UserPasswordHashSalt string `mapstructure:"user_password_hash_salt"`
 }
 
@@ -52,6 +53,11 @@ func (cfg *Config) unmarshal() error {
 	}
 
 	err = viper.Unmarshal(&cfg.Auth)
+	if err != nil {
+		return err
+	}
+
+	err = viper.Unmarshal(&cfg.Aws)
 	if err != nil {
 		return err
 	}

@@ -11,6 +11,7 @@ type MessageChat struct {
 	ChatId       int        `json:"chat_id" db:"chat_id"`
 	SenderUserId int        `json:"sender_user_id" db:"sender_user_id"`
 	Body         string     `json:"body" db:"body"`
+	IsRead       bool       `json:"is_read" db:"is_read"`
 	CreatedAt    *time.Time `json:"created_at" db:"crated_at"`
 	UpdatedAt    *time.Time `json:"updated_at" db:"updated_at"`
 }

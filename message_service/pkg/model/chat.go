@@ -21,6 +21,7 @@ type AllChat struct {
 	Title              string       `json:"title" db:"title"`
 	CountUnreadMessage int          `json:"count_unread_message" db:"count_unread_message"`
 	Type               int          `json:"type" db:"type"`
+	StartPosition      int          `json:"start_position" db:"start_position"`
 	LastMessage        *LastMessage `json:"last_message"`
 	CreatedAt          *time.Time   `json:"created_at" db:"created_at"`
 	UpdateAt           *time.Time   `json:"updated_at" db:"updated_at"`
@@ -28,7 +29,7 @@ type AllChat struct {
 
 type LastMessage struct {
 	Body      string `json:"body"`
-	IsSent    bool   `json:"isSent"`
+	IsSent    bool   `json:"is_sent"`
 	CreatedAt string `json:"created_at"`
 }
 

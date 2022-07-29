@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package UserService;
+option go_package = "github.com/pavel/user_service/pkg/pb";
+
+service UserService{
+  rpc CheckToken(CheckTokenRequest) returns(CheckTokenResponse);
+  rpc GetUser(GetUserRequest) returns(GetUserResponse);
+}
+
+message User{
+  int32 id = 1;
+  string username = 2;
+  string description = 3;
+  string avatar = 4;
+  int64 created_at = 5;
+}
+
+message CheckTokenRequest{
+  string token = 1;
+}
+
+message CheckTokenResponse{
+  int32 status = 1;
+  string err = 2;
+  int32 user_id = 3;
+}
+
+message GetUserRequest{
+  int32 user_id = 1;
+}
+
+message GetUserResponse{
+  int32 status = 1;
+  string err = 2;
+  User user = 3;
+}

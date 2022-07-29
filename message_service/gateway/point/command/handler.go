@@ -3,19 +3,52 @@ package command
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pavel/message_service/config"
-	"github.com/pavel/message_service/gateway/point/command/handler"
+	"github.com/pavel/message_service/gateway/point/user"
+	"github.com/pavel/message_service/gateway/point/user/pb"
+	"github.com/pavel/message_service/pkg/logger"
+	"github.com/pavel/message_service/pkg/service"
+	"github.com/pavel/message_service/pkg/validation"
 )
 
-func RegisterHandlers(r *gin.RouterGroup, cfg *config.Config) {
+type Handler struct {
+	log       *logger.Logger
+	cfg       *config.Config
+	userSvc   pb.UserServiceClient
+	chat      service.Chat
+	message   service.Message
+	validator *validation.Validator
+}
+
+func InitHandler(
+	r *gin.RouterGroup,
+	log *logger.Logger,
+	cfg *config.Config,
+	userSvc pb.UserServiceClient,
+	chat service.Chat,
+	message service.Message,
+) {
+	h := Handler{
+		log:       log,
+		cfg:       cfg,
+		userSvc:   userSvc,
+		chat:      chat,
+		message:   message,
+		validator: validation.InitValidator(),
+	}
+
+	h.registerHandlers(r)
+}
+
+func (h Handler) registerHandlers(r *gin.RouterGroup) {
+	auth := user.InitAuthMiddleware(h.userSvc)
 	chat := r.Group("/chat")
-	chat.POST("/create-private", createPrivateChat)
-	chat.POST("/create-group", createGroupChat)
-}
+	chat.Use(auth.AuthRequired)
+	message := chat.Group("/")
 
-func createPrivateChat(ctx *gin.Context) {
-	handler.CreatePrivateChat(ctx)
-}
+	chat.POST("/private", h.createPrivateChat)
+	chat.POST("/group", h.createPrivateChat)
+	chat.GET("/all", h.getAllChats)
 
-func createGroupChat(ctx *gin.Context) {
-	handler.CreatePrivateChat(ctx)
+	message.POST("/message", h.sendMessage)
+	message.GET("/messages", h.getAll)
 }
