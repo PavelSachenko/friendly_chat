@@ -91,7 +91,12 @@ func (u UserPostgres) UpdateAvatar(id uint64, filename string) (error, *model.Se
 		}
 	}
 	rows.Close()
-	rows, err = u.db.Queryx(fmt.Sprintf("UPDATE %s SET avatar = $1 WHERE id = $2 RETURNING id,username,description,avatar,created_at", model.UserTable), filename, id)
+	rows, err = u.db.Queryx(
+		fmt.Sprintf("UPDATE %s SET avatar = $1, updated_at = $2 WHERE id = $3 RETURNING id,username,description,avatar,created_at", model.UserTable),
+		filename,
+		time.Now(),
+		id,
+	)
 	if err != nil {
 		u.logger.Error(err)
 		return err, nil, ""
