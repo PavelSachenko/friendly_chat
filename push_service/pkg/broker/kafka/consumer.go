@@ -2,13 +2,12 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/pavel/push_service/config"
 	"github.com/pavel/push_service/pkg/service/socket"
 	"github.com/segmentio/kafka-go"
 	"log"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -18,9 +17,9 @@ type kafkaBrokerReader struct {
 
 func InitKafkaBrokerReader(cfg *config.Config) *kafkaBrokerReader {
 	kafkaConfig := kafka.ReaderConfig{
-		Brokers:         []string{"localhost:9092"},
+		Brokers:         []string{cfg.KafkaHost},
 		GroupID:         "pusher",
-		Topic:           "test",
+		Topic:           "sms",
 		MinBytes:        10e3,            // 10KB
 		MaxBytes:        10e6,            // 10MB
 		MaxWait:         3 * time.Second, // Maximum amount of time to wait for new data to come when fetching batches of messages from kafka.
@@ -30,6 +29,10 @@ func InitKafkaBrokerReader(cfg *config.Config) *kafkaBrokerReader {
 	return &kafkaBrokerReader{
 		reader: kafka.NewReader(kafkaConfig),
 	}
+}
+
+type userMessage struct {
+	UserIds []uint64 `json:"user_ids"`
 }
 
 func (k kafkaBrokerReader) Read(ctx context.Context, hub *socket.Hub) error {
@@ -44,13 +47,34 @@ func (k kafkaBrokerReader) Read(ctx context.Context, hub *socket.Hub) error {
 			log.Printf("error while commiting message: %s", err.Error())
 			continue
 		}
-		args := strings.Split(string(m.Value), " ")
-		userId, _ := strconv.ParseUint(args[0], 10, 64)
-		hub.Broadcast <- socket.Broadcast{Broadcast: []byte(m.Value), UserIds: []uint64{userId}}
+		var userMessage userMessage
+		err = json.Unmarshal(m.Value, &userMessage)
+		if err != nil {
+			log.Printf("error while decoding message: %s", err.Error())
+			continue
+		}
+
+		hub.Broadcast <- socket.Broadcast{Broadcast: k.deleteUserIds(m.Value), UserIds: userMessage.UserIds}
 		fmt.Printf("message at topic/partition/offset %v/%v/%v: %s\n", m.Topic, m.Partition, m.Offset, string(m.Value))
 	}
 }
 
+func (k kafkaBrokerReader) deleteUserIds(value []byte) []byte {
+	var i interface{}
+	if err := json.Unmarshal([]byte(value), &i); err != nil {
+		log.Println(err)
+	}
+	if m, ok := i.(map[string]interface{}); ok {
+		delete(m, "user_ids") // No problem if "foo" isn't in the map
+	}
+
+	output, err := json.Marshal(i)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return output
+}
 func (k kafkaBrokerReader) Close() error {
 	return k.reader.Close()
 }

@@ -7,8 +7,11 @@ import (
 )
 
 type Config struct {
-	Server server
-	logger *logger.Logger
+	Server           server
+	logger           *logger.Logger
+	KafkaHost        string `mapstructure:"kafka_host"`
+	UserServerUrl    string `mapstructure:"user_server_url"`
+	MessageServerUrl string `mapstructure:"message_server_url"`
 }
 
 var (
@@ -40,6 +43,12 @@ func (cfg *Config) unmarshal() error {
 	}
 
 	err = viper.Unmarshal(&cfg.Server)
+	if err != nil {
+		cfg.logger.Fatal(err.Error())
+		return err
+	}
+
+	err = viper.Unmarshal(&cfg)
 	if err != nil {
 		cfg.logger.Fatal(err.Error())
 		return err

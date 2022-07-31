@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 	"github.com/pavel/message_service/config"
 	"github.com/pavel/message_service/gateway/point/command"
 	"github.com/pavel/message_service/gateway/point/user"
+	"github.com/pavel/message_service/pkg/broker/kafka"
 	"github.com/pavel/message_service/pkg/db"
 	"github.com/pavel/message_service/pkg/logger"
 	"github.com/pavel/message_service/pkg/repository"
@@ -24,17 +26,23 @@ func main() {
 	if err != nil {
 		log.Warnf("Error init postgre: ERROR: %s", err.Error())
 	}
-
+	log.Println(cfg.KafkaHost)
+	kafkaWriter := kafka.InitKafkaBrokerWriter(cfg)
+	err = kafkaWriter.Push(context.Background(), nil, []byte("Hello world!"))
+	if err != nil {
+		log.Warnf("Error init postgre: ERROR: %s", err.Error())
+	}
+	//return
 	chatRepo := repository.InitChatPostgreSQL(*postgre, *log)
 	chatService := service.InitChatService(chatRepo)
 
 	messageRepo := repository.InitMessagePostgreSQL(postgre, log)
-	messageService := service.InitMessageService(messageRepo)
+	messageService := service.InitMessageService(messageRepo, chatRepo, kafkaWriter)
 
 	userSvc := user.InitUserServiceClient(cfg)
 	r := gin.New()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8080", "http://localhost:1000", "http://localhost:10000", "http://localhost:10001", "http://localhost:3000", "http://localhost:3001"},
+		AllowOrigins:     []string{"http://localhost:8080", "http://localhost:1000", "http://localhost:10000", "http://localhost:10001", "http://localhost:10002", "http://localhost:3000", "http://localhost:3001"},
 		AllowMethods:     []string{"*"},
 		AllowHeaders:     []string{"Authorization", "Access-Control-Allow-Headers", "Origin", "Accept", "X-Requested-With", "Content-Type", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Sec-WebSocket-Protocol", "*"},
 		AllowCredentials: true,

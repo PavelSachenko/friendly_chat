@@ -21,6 +21,7 @@ services:
       - ./message_service/gateway/cmd:/cmd
     depends_on:
       - message_service_postgres_db
+      - broker
     command: ["./wait-for-it/wait-for-it.sh", "message_service_postgres_db:5432", "-t", "600000000", "--", "/build"]
     restart: on-failure
     networks:
@@ -38,6 +39,22 @@ services:
       - "5435:5432"
     volumes:
       - ./message_service/postgres-data:/var/lib/postgresql/data
+    networks:
+      - "api-network"
+
+  push_service:
+    build: "./push_service"
+    container_name: "push_service"
+    ports:
+      - "10002"
+    volumes:
+      - ./push_service/cmd:/cmd
+    depends_on:
+      - broker
+    restart: on-failure
+    command: [ "./wait-for-it/wait-for-it.sh", "broker:9092", "-t", "600000000", "--", "/build" ]
+    expose:
+      - 10002
     networks:
       - "api-network"
 
@@ -84,6 +101,41 @@ services:
     networks:
       - "api-network"
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - "api-network"
+    volumes:
+      - ./zoo/data:/var/lib/zookeeper/data
+      - ./zoo/log:/var/lib/zookeeper/log
+    expose:
+      - 2181
+
+  broker:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: broker
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    expose:
+      - 9092
+    networks:
+      - "api-network"
+    volumes:
+      - ./broker/data:/var/lib/kafka/data
 
 volumes:
   cache:

@@ -74,30 +74,6 @@ func (h *Hub) Run() {
 					}
 				}
 			}
-
-			//if message.Username == "" {
-			//	for client := range h.clients {
-			//		select {
-			//		case client.send <- message:
-			//		default:
-			//			close(client.send)
-			//			delete(h.clients, client)
-			//		}
-			//	}
-			//} else {
-			//	for client := range h.clients {
-			//		fmt.Println("h.broadcast.username: " + message.Username)
-			//		fmt.Println("client name: " + client.username)
-			//		if client.username != "" && message.Username == client.username {
-			//			select {
-			//			case client.send <- message:
-			//			default:
-			//				close(client.send)
-			//				delete(h.clients, client)
-			//			}
-			//		}
-			//	}
-			//}
 		}
 	}
 }

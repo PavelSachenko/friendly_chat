@@ -24,3 +24,10 @@
 {"file":"main.go:39","func":"main.main()","level":"fatal","msg":"listen tcp :10000: bind: address already in use","time":"2022-07-23 15:41:06"}
 {"file":"message.go:64","func":"github.com/pavel/message_service/pkg/repository.MessagePostgreSQL.CreateChatMessage()","level":"fatal","msg":"messages_chats insert error: pq: insert or update on table \"messages_chats\" violates foreign key constraint \"fk_chat_id\"","time":"2022-07-24 15:28:09"}
 {"file":"main.go:25","func":"main.main()","level":"warning","msg":"Error init postgre: ERROR: dial tcp: lookup message_service_postgres_db: Temporary failure in name resolution","time":"2022-07-29 10:32:39"}
+{"file":"main.go:55","func":"main.main()","level":"fatal","msg":"listen tcp :10001: bind: address already in use","time":"2022-07-31 14:33:49"}
+{"file":"main.go:55","func":"main.main()","level":"fatal","msg":"listen tcp :10001: bind: address already in use","time":"2022-07-31 14:34:29"}
+{"file":"main.go:26","func":"main.main()","level":"warning","msg":"Error init postgre: ERROR: dial tcp: lookup message_service_postgres_db: Temporary failure in name resolution","time":"2022-07-31 16:28:40"}
+{"file":"main.go:26","func":"main.main()","level":"warning","msg":"Error init postgre: ERROR: dial tcp: lookup message_service_postgres_db: Temporary failure in name resolution","time":"2022-07-31 16:29:01"}
+{"file":"main.go:26","func":"main.main()","level":"warning","msg":"Error init postgre: ERROR: dial tcp: lookup message_service_postgres_db: Temporary failure in name resolution","time":"2022-07-31 16:29:16"}
+{"file":"main.go:55","func":"main.main()","level":"fatal","msg":"listen tcp: lookup message_service: Temporary failure in name resolution","time":"2022-07-31 16:29:35"}
+{"file":"main.go:60","func":"main.main()","level":"fatal","msg":"listen tcp :10001: bind: address already in use","time":"2022-07-31 16:42:15"}

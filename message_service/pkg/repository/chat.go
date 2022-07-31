@@ -16,6 +16,7 @@ type Chat interface {
 	CreatePrivate(userTitleChats []model.UserTitleChats) (int, error)
 	CreateGroup(description, title string, UsersOwners []model.UsersOwners) (int, error)
 	All(filterChat model.FilterChat) ([]*model.AllChat, error)
+	GetChatUserIds(chatId int) ([]int, error)
 }
 
 type ChatPostgreSQL struct {
@@ -30,7 +31,24 @@ func InitChatPostgreSQL(db db.DB, log logger.Logger) *ChatPostgreSQL {
 	}
 }
 
-func (c ChatPostgreSQL) All(filterChat model.FilterChat) ([]*model.AllChat, error) {
+func (c *ChatPostgreSQL) GetChatUserIds(chatId int) ([]int, error) {
+	rawSql := fmt.Sprintf("SELECT user_id FROM %s WHERE chat_id = $1", model.USERS_CHATS_TABLE)
+	rows, err := c.db.Queryx(rawSql, chatId)
+	if err != nil {
+		c.log.Errorf("Bad query sql request: %v", err)
+		return nil, err
+	}
+	var userIds []int
+	for rows.Next() {
+		var userId int
+		err := rows.Scan(&userId)
+		c.log.Errorf("Scan error: %s", err)
+		userIds = append(userIds, userId)
+	}
+	return userIds, nil
+}
+
+func (c *ChatPostgreSQL) All(filterChat model.FilterChat) ([]*model.AllChat, error) {
 	getStartPositition := fmt.Sprintf("(select count(cmc.id)-(select count(id) from %s cuum WHERE cuum.chat_id = c.id AND cuum.user_id = $1) FROM %s cmc WHERE cmc.chat_id = c.id) as start_position", model.USER_UNREAD_MESSAGE, model.MESSAGE_CHAT_TABLE)
 	countUnreadMessageSubSql := fmt.Sprintf("(SELECT count(uum.id) as count FROM %s uum WHERE c.id = uum.chat_id AND uum.user_id = $1) as count_unread_message", model.USER_UNREAD_MESSAGE)
 	lastMessageSubSql := fmt.Sprintf("(select json_build_object('body', mc.body, 'created_at', mc.created_at, 'is_sent', "+
@@ -66,7 +84,7 @@ func (c ChatPostgreSQL) All(filterChat model.FilterChat) ([]*model.AllChat, erro
 	return allChats, nil
 }
 
-func (c ChatPostgreSQL) CreateGroup(description, title string, usersOwners []model.UsersOwners) (int, error) {
+func (c *ChatPostgreSQL) CreateGroup(description, title string, usersOwners []model.UsersOwners) (int, error) {
 	ctx := context.Background()
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -104,7 +122,7 @@ func (c ChatPostgreSQL) CreateGroup(description, title string, usersOwners []mod
 	return chatId, nil
 }
 
-func (c ChatPostgreSQL) CreatePrivate(userTitleChats []model.UserTitleChats) (int, error) {
+func (c *ChatPostgreSQL) CreatePrivate(userTitleChats []model.UserTitleChats) (int, error) {
 	ctx := context.Background()
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {

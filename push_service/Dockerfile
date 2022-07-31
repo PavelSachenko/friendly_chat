@@ -6,7 +6,7 @@ RUN go mod download
 RUN go get github.com/lib/pq
 RUN go build -o /build cmd/main.go
 RUN ls
-EXPOSE 10000
+EXPOSE 10002
 
 RUN git clone https://github.com/vishnubob/wait-for-it.git
 

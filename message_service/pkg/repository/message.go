@@ -12,7 +12,7 @@ import (
 )
 
 type Message interface {
-	CreateChatMessage(senderUserId, chatId int, body string) (int, error)
+	CreateChatMessage(senderUserId, chatId int, body string) (*model.Message, error)
 	All(filterMessage model.FilterMessage) ([]*model.MessageChat, error)
 }
 
@@ -51,15 +51,15 @@ func (m MessagePostgreSQL) All(filterMessage model.FilterMessage) ([]*model.Mess
 	return messages, nil
 }
 
-func (m MessagePostgreSQL) CreateChatMessage(senderUserId, chatId int, body string) (int, error) {
+func (m MessagePostgreSQL) CreateChatMessage(senderUserId, chatId int, body string) (*model.Message, error) {
 	if !m.checkIfChatExist(chatId) {
-		return 0, errors.New("not found chat")
+		return nil, errors.New("not found chat")
 	}
 	ctx := context.Background()
 	tx, err := m.db.BeginTx(ctx, nil)
 	if err != nil {
 		m.log.Warnf("Transaction error: %v", err)
-		return 0, err
+		return nil, err
 	}
 	dateNow := time.Now()
 
@@ -68,21 +68,22 @@ func (m MessagePostgreSQL) CreateChatMessage(senderUserId, chatId int, body stri
 		Insert(fmt.Sprintf("%s (chat_id, sender_user_id, body, created_at, updated_at)", model.MESSAGE_CHAT_TABLE)).Values("").
 		AddValue("(@, @, @, @, @)", chatId, senderUserId, body, dateNow, dateNow).
 		ToSql()
-	var messageId int
-	err = tx.QueryRowContext(ctx, messageSQL+" RETURNING id", messageArguments...).Scan(&messageId)
+	var message model.Message
+	err = tx.QueryRowContext(ctx, messageSQL+" RETURNING id,chat_id,sender_user_id,body,created_at,updated_at", messageArguments...).
+		Scan(&message.ID, &message.ChatId, &message.SenderUserId, &message.Body, &message.CreatedAt, &message.UpdatedAt)
 	if err != nil {
 		m.log.Warnf("%s insert error: %v", model.MESSAGE_CHAT_TABLE, err)
 		tx.Rollback()
-		return 0, err
+		return nil, err
 	}
-	err = m.addUnreadMessage(ctx, tx, chatId, senderUserId, messageId)
+	err = m.addUnreadMessage(ctx, tx, chatId, senderUserId, message.ID)
 	if err != nil {
 		tx.Rollback()
 		m.log.Warnf("Can't create unread message")
 	}
 	tx.Commit()
-	m.log.Printf("Created message. Message id: %d", messageId)
-	return messageId, nil
+	m.log.Printf("Created message. Message id: %d", message.ID)
+	return &message, nil
 }
 
 func (m MessagePostgreSQL) checkIfChatExist(chatId int) bool {

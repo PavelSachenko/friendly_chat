@@ -7,9 +7,10 @@ import (
 )
 
 type Config struct {
-	Server server
-	logger *logger.Logger
-	DB     db
+	Server    server
+	logger    *logger.Logger
+	DB        db
+	KafkaHost string `mapstructure:"kafka_host"`
 }
 
 var (

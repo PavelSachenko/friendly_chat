@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -9,6 +8,7 @@ import (
 	k "github.com/pavel/push_service/pkg/broker/kafka"
 	"github.com/pavel/push_service/pkg/logger"
 	"github.com/pavel/push_service/pkg/service/socket"
+	"golang.org/x/net/context"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -44,7 +44,7 @@ func main() {
 	test := gin.New()
 
 	test.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:8080", "http://localhost:1000", "http://localhost:10000", "http://localhost:10001"},
+		AllowOrigins: []string{"http://localhost:8080", "http://localhost:1000", "http://localhost:10000", "http://localhost:10002", "http://localhost:10001", "http://localhost:3000", "http://localhost:3001"},
 		//AllowOrigins: []string{"*"},
 		AllowMethods: []string{"*"},
 		AllowHeaders: []string{"Authorization", "Access-Control-Allow-Headers", "Origin", "Accept", "X-Requested-With", "Content-Type", "Access-Control-Request-Method", "Access-Control-Request-Headers", "*"},
@@ -55,8 +55,11 @@ func main() {
 
 		MaxAge: 84000,
 	}))
-
-	test.GET("/push", func(ctx *gin.Context) {
+	log.Println(cfg.UserServerUrl)
+	log.Println(cfg.MessageServerUrl)
+	test.GET("/pusher/push", func(ctx *gin.Context) {
+		//ctx.JSON(200, "Hello world")
+		//return
 		//cookie, err := ctx.Cookie("refresh_token")
 		//if err != nil {
 		//	log.Fatalf("ERROR connect to socket: %v", err)
@@ -64,7 +67,7 @@ func main() {
 		//	return
 		//}
 		client := &http.Client{}
-		req, err := http.NewRequest("GET", "http://localhost:10000/api/user", nil)
+		req, err := http.NewRequest("GET", cfg.UserServerUrl+"/api/user", nil)
 		if err != nil {
 			ctx.JSON(422, err.Error())
 		}
@@ -82,9 +85,9 @@ func main() {
 		ctx.JSON(res.StatusCode, e.ID)
 	})
 
-	test.GET("/ws", func(ctx *gin.Context) {
+	test.GET("/pusher/ws", func(ctx *gin.Context) {
 		client := &http.Client{}
-		req, err := http.NewRequest("GET", "http://localhost:10000/api/user", nil)
+		req, err := http.NewRequest("GET", cfg.UserServerUrl+"/api/user", nil)
 		if err != nil {
 			ctx.JSON(422, err.Error())
 		}
