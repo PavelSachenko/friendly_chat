@@ -3,4 +3,4 @@ user_service/postgres-data
 */postgres-data
 uploads
 zoo
-broker
+/broker
