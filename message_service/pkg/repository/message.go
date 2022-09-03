@@ -8,6 +8,8 @@ import (
 	"github.com/pavel/message_service/pkg/db"
 	"github.com/pavel/message_service/pkg/logger"
 	"github.com/pavel/message_service/pkg/model"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -56,20 +58,30 @@ func (m MessagePostgreSQL) All(filterMessage model.FilterMessage) ([]*model.Mess
 		}
 		messages = append(messages, &message)
 	}
-	messagesRows.Close()
-	idUnreadMessage := func(messages []*model.MessageChat) []int {
-		idUnreadMessage := make([]int, 4, 4)
-		for _, message := range messages {
-			idUnreadMessage = append(idUnreadMessage, message.ID)
+	if len(messages) != 0 {
+		messagesRows.Close()
+		idUnreadMessageSqlCondition := func(messages []*model.MessageChat) []string {
+			idUnreadMessageSqlCondition := make([]string, 0, len(messages))
+			for _, message := range messages {
+				idUnreadMessageSqlCondition = append(idUnreadMessageSqlCondition, strconv.Itoa(message.ID))
+			}
+			return idUnreadMessageSqlCondition
+		}(messages)
+
+		_, err = t.Query(fmt.Sprintf("DELETE FROM %s WHERE user_id = $1 AND chat_id = $2 AND message_id = ANY($3::int[])",
+			model.USER_UNREAD_MESSAGE),
+			filterMessage.UserId,
+			filterMessage.ChatId,
+			"{"+strings.Join(idUnreadMessageSqlCondition, ",")+"}",
+		)
+
+		if err != nil {
+			m.log.Errorf("Can't delete unread message: %v", err)
+			t.Rollback()
+			return nil, err
 		}
-		return idUnreadMessage
-	}(messages)
-	_, err = t.Query(fmt.Sprintf("DELETE FROM %s WHERE message_id in $1 AND user_id = $2 AND chat_id = $3", model.USER_UNREAD_MESSAGE), idUnreadMessage, filterMessage.UserId, filterMessage.ChatId)
-	if err != nil {
-		m.log.Errorf("Can't delete unread message: %v", err)
-		t.Rollback()
-		return nil, err
 	}
+
 	t.Commit()
 	return messages, nil
 }
