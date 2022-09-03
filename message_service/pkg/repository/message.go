@@ -30,24 +30,47 @@ func InitMessagePostgreSQL(db *db.DB, log *logger.Logger) *MessagePostgreSQL {
 
 func (m MessagePostgreSQL) All(filterMessage model.FilterMessage) ([]*model.MessageChat, error) {
 
+	ctx := context.Background()
+	t, err := m.db.BeginTx(ctx, nil)
 	isReadMessageSQL := fmt.Sprintf("(SELECT CASE WHEN "+
 		"(SELECT count(uum.id) from %s uum LEFT JOIN %s uc on uum.chat_id = uc.chat_id WHERE uum.chat_id = $1 AND uum.message_id = mc.id AND uc.user_id <> $2)"+
 		" = "+
 		"(SELECT count(id) as count_user FROM users_chats uc WHERE uc.chat_id = $1 AND uc.user_id <> $2)"+
 		" THEN false ELSE true END) as is_read", model.USER_UNREAD_MESSAGE, model.USERS_CHATS_TABLE)
-	messagesRows, err := m.db.Query(fmt.Sprintf("SELECT mc.id, mc.chat_id, mc.sender_user_id, mc.body, mc.created_at, mc.updated_at, %s "+
+	messagesRows, err := t.Query(fmt.Sprintf("SELECT mc.id, mc.chat_id, mc.sender_user_id, mc.body, mc.created_at, mc.updated_at, %s "+
 		"FROM %s mc WHERE chat_id = $1 ORDER BY created_at DESC LIMIT %d OFFSET %d",
 		isReadMessageSQL, model.MESSAGE_CHAT_TABLE, filterMessage.Limit, filterMessage.Offset), filterMessage.ChatId, filterMessage.UserId)
+	if err != nil {
+		m.log.Errorf("Error get all message: %v", err)
+		t.Rollback()
+		return nil, err
+	}
 	var messages []*model.MessageChat
 	for messagesRows.Next() {
 		var message model.MessageChat
 		err = messagesRows.Scan(&message.ID, &message.ChatId, &message.SenderUserId, &message.Body, &message.CreatedAt, &message.UpdatedAt, &message.IsRead)
 		if err != nil {
 			m.log.Warnf("Can't scan message. Err %v", err.Error())
+			t.Rollback()
 			return nil, err
 		}
 		messages = append(messages, &message)
 	}
+	messagesRows.Close()
+	idUnreadMessage := func(messages []*model.MessageChat) []int {
+		idUnreadMessage := make([]int, 4, 4)
+		for _, message := range messages {
+			idUnreadMessage = append(idUnreadMessage, message.ID)
+		}
+		return idUnreadMessage
+	}(messages)
+	_, err = t.Query(fmt.Sprintf("DELETE FROM %s WHERE message_id in $1 AND user_id = $2 AND chat_id = $3", model.USER_UNREAD_MESSAGE), idUnreadMessage, filterMessage.UserId, filterMessage.ChatId)
+	if err != nil {
+		m.log.Errorf("Can't delete unread message: %v", err)
+		t.Rollback()
+		return nil, err
+	}
+	t.Commit()
 	return messages, nil
 }
 
